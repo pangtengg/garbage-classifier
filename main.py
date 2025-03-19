@@ -45,10 +45,11 @@ recycling_info = {
 }
 
 # Streamlit UI
-st.title('Welcome to Garbage Classifier!')
-st.markdown("""This model helps in classifying household waste into recyclable categories, aiding in effective waste management. The 12 available classes are: Battery, Biological, Brown Glass, Cardboard, Clothes, Green Glass, Metal, Paper, Plastic, Shoes, Trash, and White Glass.""")
+st.title('♻️ EcoConnect Garbage Classifier')
+st.markdown("""Upload or capture an image of garbage to classify it into **12 categories** for better waste management. The 12 available categories are: Battery, Biological, Brown Glass, Cardboard, Clothes, Green Glass, Metal, Paper, Plastic, Shoes, Trash, and White Glass.""")
  
-uploaded_file = st.file_uploader("Upload an image of garbage", type=["jpg", "png"])
+option = st.radio("Choose an image source:", ("Upload", "Camera"))
+uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png"]) if option == "Upload" else st.camera_input("Take a picture")
 
 if uploaded_file is not None:
     # Load and display the image
@@ -61,18 +62,25 @@ if uploaded_file is not None:
     # Perform the prediction
     with torch.no_grad():
         output = resnet_model(input_tensor)
-        _, predicted = torch.max(output, 1)
-
-         # Calculate softmax probabilities
         probabilities = F.softmax(output, dim=1)
-        predicted_prob = probabilities[0][predicted].item() * 100  # Convert to percentage
+        top3_prob, top3_classes = torch.topk(probabilities, 3)
+        predicted_class = class_names[top3_classes[0][0].item()]
+        predicted_prob = top3_prob[0][0].item() * 100  # Convert to percentage
 
+    st.progress(int(predicted_prob))  # Show a progress bar while predicting
 
     # Display the predicted class
-    predicted_class = class_names[predicted.item()]
-    recycling_info, bin_color = recycling_info[predicted_class]
+    rec_info, bin_color = recycling_info[predicted_class]
+    st.subheader("Classification Details")
+    st.write(f"**🖇 Predicted Class:** {predicted_class}")
+    st.write(f"**⟳ Recycling Process:** {rec_info}")
+    st.write(f"**♺ Bin Color:** {bin_color}")
 
-    st.write(f"**Predicted class   :** {predicted_class}")
-    st.write(f"**Recycling Process :** {recycling_info}")
-    st.write(f"**Bin Color         :** {bin_color}")
-    st.write(f"**Predicted accuracy:** {predicted_prob:.2f}%")  
+# Display Top 3 Predictions in a single line
+    top3_text = " | ".join(
+        f"**{class_names[top3_classes[0][i].item()]}** ({top3_prob[0][i].item() * 100:.2f}%)"
+        for i in range(3)
+    )
+
+    st.write(f"**% Confidence Level:** {top3_text}")
+
